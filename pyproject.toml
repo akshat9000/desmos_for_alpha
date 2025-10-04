@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desmos-for-alphas"
+version = "0.1.0"
+description = "DSL and interpreter for quantitative alpha expressions"
+authors = [{ name = "Akshat Srivastava" }]
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.1",
+    "numpy>=1.26",
+    "lark==1.1.8",
+    "fastapi>=0.111",
+    "uvicorn>=0.30",
+    "pydantic>=2.8"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dsl", "app", "dsl.*", "app.*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]

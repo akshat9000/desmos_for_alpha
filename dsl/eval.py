@@ -33,7 +33,8 @@ def truthy(x):
 class EvaluationContext:
     def __init__(self, fields: dict[str, pd.DataFrame], t):
         self.fields = fields
-        self.t = t  # pandas Timestamp in index
+        self.t = t
+        self._cache = {}
 
     def series(self, field_name: str) -> pd.Series:
         if field_name not in self.fields:
@@ -47,7 +48,21 @@ class EvaluationContext:
         setattr(s, "_field_name", field_name)
         return s
 
+
+def _node_key(node):
+        from .parser import Number, Name, BinOp, UnaryOp, Call
+        if isinstance(node, Number): return ("num", node.value)
+        if isinstance(node, Name): return ("name", node.name)
+        if isinstance(node, UnaryOp): return ("un", node.op, _node_key(node.operand))
+        if isinstance(node, BinOp): return ("bin", node.op, _node_key(node.left), _node_key(node.right))
+        if isinstance(node, Call): return ("call", node.name, tuple(_node_key(a) for a in node.args))
+        raise TypeError
+
+
 def eval_node(ctx: EvaluationContext, node):
+    k = _node_key(node)
+    if k in ctx._cache:
+        return ctx._cache[k]
     import pandas as pd
     if isinstance(node, Number):
         return node.value
@@ -80,5 +95,7 @@ def eval_node(ctx: EvaluationContext, node):
         if argc not in allowed:
             raise AssertionError(f"{node.name} expects {allowed}, got {argc}")
         args = [eval_node(ctx, arg) for arg in node.args]
-        return spec.impl(ctx, *args)
-    raise TypeError(f"Unknown node {type(node)}")
+        out = spec.impl(ctx, *args)
+    ctx._cache[k] = out
+    return out
+    # raise TypeError(f"Unknown node {type(node)}")

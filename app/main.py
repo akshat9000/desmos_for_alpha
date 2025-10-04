@@ -6,6 +6,7 @@ import pandas as pd, numpy as np
 from dsl.registry import list_functions
 from dsl.parser import parse_alpha
 from dsl.eval import EvaluationContext, eval_node
+from dsl.analyzer import analyze
 import dsl.functions  # register all
 
 app = FastAPI(title="Desmos-for-Alphas DSL")
@@ -26,8 +27,13 @@ def functions():
 def parse(body: ParseBody):
     try:
         ast = parse_alpha(body.alpha)
-        # In a real impl we'd return a JSON AST + required fields; v0 we just ok
-        return {"ok": True}
+        meta = analyze(ast)
+        return {
+            "ok": True,
+            "fields": sorted(meta.fields),
+            "windows": {k: sorted(v) for k,v in meta.windows.items()},
+            "functions": sorted(meta.functions),
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -56,3 +62,14 @@ def evaluate(body: EvalBody):
         return {"date": body.date, "result": float(out)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/evaluate_series")
+def evaluate_series_api(body: EvalBody):
+    from engine.backtest_loop import evaluate_series
+    fields = {name: pd.read_csv(f"data/{name}.csv", index_col=0, parse_dates=True)
+              for name in ["returns","close","volume"]}
+    out = evaluate_series(body.alpha, fields)
+    return {"dates": out.index.strftime("%Y-%m-%d").tolist(),
+            "columns": out.columns.tolist(),
+            "values": out.values.tolist()}
