@@ -78,3 +78,16 @@ def ts_corr(ctx, x, y, n):
     sy = window_y.std(ddof=1)
     out = cov / (sx * sy)
     return out
+
+
+@register("decay_linear", arity=range(2,3), kind="ts",
+          doc="linearly decayed weighted average over n days")
+def decay_linear(ctx, x, n):
+    n = int(n)
+    df = _get_df_from_series(ctx, x)
+    window = _row_slice(df, ctx.t, n)
+    w = np.arange(1, len(window)+1, dtype=float)
+    w /= w.sum()
+    out = (window.mul(w[:, None], axis=0)).sum(axis=0)
+    setattr(out, "_field_name", getattr(x, "_field_name", None))
+    return out
