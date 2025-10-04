@@ -1,4 +1,3 @@
-
 import numpy as np, pandas as pd
 from ..registry import register
 
@@ -63,4 +62,19 @@ def ts_rank(ctx, x, n):
     ranks = (window.le(last, axis=1)).sum() / window.notna().sum()
     out = ranks.astype(float)
     setattr(out, "_field_name", getattr(x, "_field_name", None))
+    return out
+
+
+@register("ts_corr", arity=range(3,4), kind="ts", doc="rolling Pearson correlation of x,y over n")
+def ts_corr(ctx, x, y, n):
+    n = int(n)
+    dfx = _get_df_from_series(ctx, x)
+    dfy = _get_df_from_series(ctx, y)
+    dfx, dfy = dfx.align(dfy, join="inner", axis=1)
+    window_x = _row_slice(dfx, ctx.t, n)
+    window_y = _row_slice(dfy, ctx.t, n)
+    cov = ((window_x - window_x.mean()) * (window_y - window_y.mean())).sum() / (len(window_x) - 1)
+    sx = window_x.std(ddof=1)
+    sy = window_y.std(ddof=1)
+    out = cov / (sx * sy)
     return out
