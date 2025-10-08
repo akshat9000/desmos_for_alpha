@@ -1,7 +1,7 @@
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 import pandas as pd, numpy as np
 from dsl.registry import list_functions
 from dsl.parser import parse_alpha
@@ -9,15 +9,43 @@ from dsl.eval import EvaluationContext, eval_node
 from dsl.analyzer import analyze
 import dsl.functions  # register all
 
+# add imports at top
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+import pandas as pd, os
+
+# after app = FastAPI(...)
+WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
+STATIC_DIR = os.path.join(WEB_DIR)  # we’ll mount the same dir for simplicity
+
 app = FastAPI(title="Desmos-for-Alphas DSL")
+
+# mount /static to /web for css/js
+app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
 
 class ParseBody(BaseModel):
     alpha: str
 
 class EvalBody(BaseModel):
     alpha: str
-    date: str
+    date: Optional[str] = None
     fields: List[str] = []  # names required (for validation later)
+
+def load_fields():
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
+    def read(name): 
+        return pd.read_csv(os.path.join(data_dir, f"{name}.csv"), index_col=0, parse_dates=True)
+    return {
+        "returns": read("returns"),
+        "close":   read("close"),
+        "volume":  read("volume"),
+    }
+
+@app.get("/", response_class=HTMLResponse)
+def playground():
+    index_path = os.path.join(WEB_DIR, "index.html")
+    with open(index_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.get("/functions")
 def functions():
@@ -39,27 +67,15 @@ def parse(body: ParseBody):
 
 @app.post("/evaluate")
 def evaluate(body: EvalBody):
-    # Toy in-memory data generator for demo
-    # In production, load from your DB or files.
-    dates = pd.date_range("2024-01-01", periods=60, freq="B")
-    symbols = ["AAPL","MSFT","GOOG","AMZN"]
-    rng = np.random.default_rng(42)
-    fields = {
-        "returns": pd.DataFrame(rng.normal(0,0.01,(len(dates), len(symbols))), index=dates, columns=symbols),
-        "close": pd.DataFrame(100+np.cumsum(rng.normal(0,1,(len(dates), len(symbols))), axis=0), index=dates, columns=symbols),
-        "volume": pd.DataFrame(rng.integers(1e5, 2e6, size=(len(dates), len(symbols))), index=dates, columns=symbols),
-    }
-    if body.date not in dates.astype(str).tolist():
-        raise HTTPException(status_code=400, detail="Requested date not in demo dataset range")
-    t = pd.Timestamp(body.date)
+    fields = load_fields()
+    dates = next(iter(fields.values())).index
+    t = pd.Timestamp(body.date) if body.date else dates[-1]
 
     try:
         ast = parse_alpha(body.alpha)
         ctx = EvaluationContext(fields, t)
         out = eval_node(ctx, ast)
-        if hasattr(out, "to_dict"):
-            return {"date": body.date, "result": out.to_dict()}
-        return {"date": body.date, "result": float(out)}
+        return {"date": t.strftime("%Y-%m-%d"), "result": out.to_dict() if hasattr(out, "to_dict") else float(out)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -67,9 +83,10 @@ def evaluate(body: EvalBody):
 @app.post("/evaluate_series")
 def evaluate_series_api(body: EvalBody):
     from engine.backtest_loop import evaluate_series
-    fields = {name: pd.read_csv(f"data/{name}.csv", index_col=0, parse_dates=True)
-              for name in ["returns","close","volume"]}
+    fields = load_fields()
     out = evaluate_series(body.alpha, fields)
-    return {"dates": out.index.strftime("%Y-%m-%d").tolist(),
-            "columns": out.columns.tolist(),
-            "values": out.values.tolist()}
+    return {
+        "dates": out.index.strftime("%Y-%m-%d").tolist(),
+        "columns": out.columns.tolist(),
+        "values": out.values.tolist(),
+    }

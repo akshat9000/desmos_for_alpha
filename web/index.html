@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Desmos-for-Alphas Playground</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <!-- Plotly for quick charts -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Desmos-for-Alphas</h1>
+      <div class="actions">
+        <button id="btnFunctions">Refresh Functions</button>
+        <button id="btnParse">Parse / Analyze</button>
+        <button id="btnEvaluate">Evaluate (latest date)</button>
+        <button id="btnSeries">Evaluate Series</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="left">
+        <label for="alpha">Alpha</label>
+        <textarea id="alpha" rows="10">rank(ts_mean(returns,5) - ts_mean(returns,20))</textarea>
+
+        <div class="meta">
+          <h3>Parse Metadata</h3>
+          <pre id="meta"></pre>
+        </div>
+      </section>
+
+      <section class="right">
+        <div class="panel">
+          <h3>Functions</h3>
+          <div id="functions"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Evaluate (latest date)</h3>
+          <div id="evalDate"></div>
+          <table id="evalTable"></table>
+        </div>
+
+        <div class="panel">
+          <h3>Series Chart</h3>
+          <div class="controls">
+            <label>Symbol:
+              <select id="symbolSelect"></select>
+            </label>
+          </div>
+          <div id="chart" style="height:360px;"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
