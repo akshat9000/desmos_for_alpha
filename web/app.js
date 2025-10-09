@@ -1,9 +1,17 @@
-async function api(path, opts={}) {
-    const r = await fetch(path, { headers: { "Content-Type":"application/json" }, ...opts });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
-  
+// --- Optional API base (keeps working if not set) ---
+const API_BASE =
+  (typeof window !== "undefined" && window.API_BASE) ||
+  ""; // set window.API_BASE = "https://<your-api>.onrender.com" if needed
+
+async function api(path, opts = {}) {
+  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const r = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opts });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// We'll initialize after DOM is ready so elements exist and listeners attach reliably
+function initApp() {
   const els = {
     alpha: document.getElementById("alpha"),
     meta: document.getElementById("meta"),
@@ -28,18 +36,18 @@ async function api(path, opts={}) {
     const alpha = els.alpha.value.trim();
     const payload = {
       alpha,
-      top_q: parseFloat(els2.topQ.value || "0.2"),
-      bot_q: parseFloat(els2.botQ.value || "0.2"),
-      cost_bps: parseFloat(els2.costBps.value || "0"),
+      top_q: parseFloat(els2.topQ?.value || "0.2"),
+      bot_q: parseFloat(els2.botQ?.value || "0.2"),
+      cost_bps: parseFloat(els2.costBps?.value || "0"),
       neutralize: true
     };
-    const res = await api("/backtest", { method:"POST", body: JSON.stringify(payload) });
-  
+    const res = await api("/backtest", { method: "POST", body: JSON.stringify(payload) });
+
     // Equity curve
     Plotly.newPlot(els2.equityChart, [{
       x: res.dates, y: res.equity, mode: "lines", name: "Equity"
-    }], { margin:{t:20,r:10,b:40,l:45}, xaxis:{type:"date"}, yaxis:{zeroline:false} });
-  
+    }], { margin: { t: 20, r: 10, b: 40, l: 45 }, xaxis: { type: "date" }, yaxis: { zeroline: false } });
+
     // Heatmap (signals)
     Plotly.newPlot(els2.heatmap, [{
       z: res.signals,
@@ -49,34 +57,32 @@ async function api(path, opts={}) {
       colorscale: "RdBu",
       reversescale: true,
       showscale: true
-    }], { margin:{t:20,r:10,b:40,l:60}, yaxis:{autorange:"reversed"} });
+    }], { margin: { t: 20, r: 10, b: 40, l: 60 }, yaxis: { autorange: "reversed" } });
   }
-  
-  
+
   async function showAST() {
     const alpha = els.alpha.value.trim();
-    const res = await api("/ast", { method:"POST", body: JSON.stringify({ alpha }) });
+    const res = await api("/ast", { method: "POST", body: JSON.stringify({ alpha }) });
     els.astPretty.textContent = res.pretty || "";
     els.astJson.textContent = JSON.stringify(res.tree || {}, null, 2);
   }
-    
-  
+
   async function loadFunctions() {
     const data = await api("/functions");
     const list = (data.functions || [])
       .map(fn => {
         const ar = Array.isArray(fn.arity) ? fn.arity.join(",") : String(fn.arity);
-        return `<div class="fn"><b>${fn.name}</b> <span style="color:#9fb2d1">[arity ${ar}]</span><br/><span style="color:#8aa">${fn.doc||""}</span></div>`;
+        return `<div class="fn"><b>${fn.name}</b> <span style="color:#9fb2d1">[arity ${ar}]</span><br/><span style="color:#8aa">${fn.doc || ""}</span></div>`;
       }).join("");
     els.functions.innerHTML = list || "No functions registered.";
   }
-  
+
   async function parseAlpha() {
     const alpha = els.alpha.value.trim();
-    const res = await api("/parse", { method:"POST", body: JSON.stringify({ alpha }) });
+    const res = await api("/parse", { method: "POST", body: JSON.stringify({ alpha }) });
     els.meta.textContent = JSON.stringify(res, null, 2);
   }
-  
+
   function renderTable(obj) {
     const syms = Object.keys(obj).sort();
     let html = "<thead><tr><th>Symbol</th><th>Value</th></tr></thead><tbody>";
@@ -86,15 +92,12 @@ async function api(path, opts={}) {
     html += "</tbody>";
     els.evalTable.innerHTML = html;
   }
-  
+
   async function evaluateLatest() {
-    // quick trick: let the server pick latest date from its dataset (your /evaluate uses explicit date;
-    // you can adapt it to read last date from CSVs if date omitted, or keep a small helper endpoint).
-    // For now, we’ll fetch series and take the last row (works fine).
     const alpha = els.alpha.value.trim();
-    const res = await api("/evaluate_series_fast", { method:"POST", body: JSON.stringify({ alpha, fields: [] }) });
+    const res = await api("/evaluate_series_fast", { method: "POST", body: JSON.stringify({ alpha, fields: [] }) });
     const { dates, columns, values } = res;
-  
+
     if (!dates || dates.length === 0) return;
     const lastIdx = dates.length - 1;
     const lastRow = values[lastIdx];
@@ -102,21 +105,20 @@ async function api(path, opts={}) {
     columns.forEach((c, i) => latest[c] = lastRow[i]);
     els.evalDate.textContent = `Latest date: ${dates[lastIdx]}`;
     renderTable(latest);
-  
+
     // populate symbol selector
     els.symbolSelect.innerHTML = columns.map(c => `<option value="${c}">${c}</option>`).join("");
   }
-  
+
   async function evaluateSeries() {
     const alpha = els.alpha.value.trim();
-    const res = await api("/evaluate_series_fast", { method:"POST", body: JSON.stringify({ alpha, fields: [] }) });
+    const res = await api("/evaluate_series_fast", { method: "POST", body: JSON.stringify({ alpha, fields: [] }) });
     const { dates, columns, values } = res;
     if (!dates || !columns) return;
-  
-    // plot the first symbol by default or selected one
+
     const selected = els.symbolSelect.value || columns[0];
     const si = columns.indexOf(selected);
-  
+
     const y = values.map(row => row[si]);
     const trace = { x: dates, y, mode: "lines", name: selected };
     Plotly.newPlot(els.chart, [trace], {
@@ -125,26 +127,40 @@ async function api(path, opts={}) {
       yaxis: { zeroline: false }
     });
   }
-  
-  document.getElementById("btnFunctions").addEventListener("click", loadFunctions);
-  document.getElementById("btnParse").addEventListener("click", parseAlpha);
-  document.getElementById("btnEvaluate").addEventListener("click", async () => {
-    await evaluateLatest();
+
+  // --- Direct bindings (now safe because DOM is ready) ---
+  document.getElementById("btnFunctions")?.addEventListener("click", loadFunctions);
+  document.getElementById("btnParse")?.addEventListener("click", parseAlpha);
+  document.getElementById("btnEvaluate")?.addEventListener("click", evaluateLatest);
+  document.getElementById("btnSeries")?.addEventListener("click", evaluateSeries);
+
+  // FIXED: actually call runBacktest()
+  document.getElementById("btnBacktest")?.addEventListener("click", () => { runBacktest().catch(console.error); });
+
+  document.getElementById("btnAST")?.addEventListener("click", () => { showAST().catch(console.error); });
+
+  els.symbolSelect?.addEventListener("change", evaluateSeries);
+
+  // --- Delegated fallback (works even if buttons mount later) ---
+  document.addEventListener("click", (ev) => {
+    const astBtn = ev.target.closest?.("#btnAST");
+    if (astBtn) { ev.preventDefault?.(); showAST().catch(console.error); }
+    const btBtn = ev.target.closest?.("#btnBacktest");
+    if (btBtn) { ev.preventDefault?.(); runBacktest().catch(console.error); }
   });
-  document.getElementById("btnSeries").addEventListener("click", async () => {
-    await evaluateSeries();
-  });
-  document.getElementById("btnBacktest").addEventListener("click", async () => {
-    await runBacktest
-  });
-  document.getElementById("btnAST").addEventListener("click", async () => {
-    await showAST();
-  });
-  
-  els.symbolSelect.addEventListener("change", evaluateSeries);
-  
-  // initial
-  loadFunctions();
-  parseAlpha();
-  evaluateLatest();
-  
+
+  // --- Initial data loads ---
+  loadFunctions().catch(console.error);
+  parseAlpha().catch(console.error);
+  evaluateLatest().catch(console.error);
+
+  // Debug breadcrumbs (optional)
+  console.log("[desmos] boot ok, API_BASE:", API_BASE || "(empty)");
+}
+
+// Ensure we bind after DOM is ready everywhere (prod-safe)
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}
