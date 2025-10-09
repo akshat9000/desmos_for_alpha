@@ -52,8 +52,6 @@ async function api(path, opts={}) {
     }], { margin:{t:20,r:10,b:40,l:60}, yaxis:{autorange:"reversed"} });
   }
   
-  document.getElementById("btnBacktest").addEventListener("click", runBacktest);
-
   
   async function showAST() {
     const alpha = els.alpha.value.trim();
@@ -61,8 +59,7 @@ async function api(path, opts={}) {
     els.astPretty.textContent = res.pretty || "";
     els.astJson.textContent = JSON.stringify(res.tree || {}, null, 2);
   }
-  
-  document.getElementById("btnAST").addEventListener("click", showAST);  
+    
   
   async function loadFunctions() {
     const data = await api("/functions");
@@ -136,6 +133,12 @@ async function api(path, opts={}) {
   });
   document.getElementById("btnSeries").addEventListener("click", async () => {
     await evaluateSeries();
+  });
+  document.getElementById("btnBacktest").addEventListener("click", async () => {
+    await runBacktest
+  });
+  document.getElementById("btnAST").addEventListener("click", async () => {
+    await showAST();
   });
   
   els.symbolSelect.addEventListener("change", evaluateSeries);
