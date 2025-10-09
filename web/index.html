@@ -17,6 +17,8 @@
         <button id="btnParse">Parse / Analyze</button>
         <button id="btnEvaluate">Evaluate (latest date)</button>
         <button id="btnSeries">Evaluate Series</button>
+        <button id="btnAST">AST</button>
+        <button id="btnBacktest">Backtest</button>
       </div>
     </header>
 
@@ -25,33 +27,55 @@
         <label for="alpha">Alpha</label>
         <textarea id="alpha" rows="10">rank(ts_mean(returns,5) - ts_mean(returns,20))</textarea>
 
-        <div class="meta">
-          <h3>Parse Metadata</h3>
-          <pre id="meta"></pre>
-        </div>
-      </section>
-
-      <section class="right">
-        <div class="panel">
-          <h3>Functions</h3>
-          <div id="functions"></div>
-        </div>
-
         <div class="panel">
           <h3>Evaluate (latest date)</h3>
           <div id="evalDate"></div>
           <table id="evalTable"></table>
         </div>
 
+        <div class="meta">
+          <h3>Parse Metadata</h3>
+          <pre id="meta"></pre>
+        </div>
+
+        <div class="meta">
+          <h3>AST (Pretty)</h3>
+          <pre id="astPretty"></pre>
+        </div>
+        <div class="meta">
+          <h3>AST (JSON)</h3>
+          <pre id="astJson"></pre>
+        </div>        
+        
+      </section>
+
+      <section class="right">
+
         <div class="panel">
+
+          <h3>Backtest (L/S Quantiles)</h3>
+          <div class="controls">
+            <label>Top q: <input id="topQ" type="number" step="0.05" value="0.2" style="width:70px"/></label>
+            <label>Bot q: <input id="botQ" type="number" step="0.05" value="0.2" style="width:70px"/></label>
+            <label>Cost (bps): <input id="costBps" type="number" step="1" value="0" style="width:70px"/></label>
+          </div>
+          <div id="equityChart" style="height:200px;"></div>
+          <div id="heatmap" style="height:200px; margin-top:10px;"></div>
+
           <h3>Series Chart</h3>
           <div class="controls">
             <label>Symbol:
               <select id="symbolSelect"></select>
             </label>
           </div>
-          <div id="chart" style="height:360px;"></div>
+          <div id="chart" style="height:200px;"></div>
         </div>
+
+        <div class="panel">
+          <h3>Functions</h3>
+          <div id="functions"></div>
+        </div>
+
       </section>
     </main>
   </div>

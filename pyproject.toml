@@ -20,7 +20,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dsl", "app", "dsl.*", "app.*"]
+include = ["dsl", "app", "engine", "dsl.*", "app.*", "engine.*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"

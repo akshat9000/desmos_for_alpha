@@ -12,7 +12,57 @@ async function api(path, opts={}) {
     evalDate: document.getElementById("evalDate"),
     symbolSelect: document.getElementById("symbolSelect"),
     chart: document.getElementById("chart"),
+    astPretty: document.getElementById("astPretty"),
+    astJson: document.getElementById("astJson"),
   };
+
+  const els2 = {
+    topQ: document.getElementById("topQ"),
+    botQ: document.getElementById("botQ"),
+    costBps: document.getElementById("costBps"),
+    equityChart: document.getElementById("equityChart"),
+    heatmap: document.getElementById("heatmap"),
+  };
+
+  async function runBacktest() {
+    const alpha = els.alpha.value.trim();
+    const payload = {
+      alpha,
+      top_q: parseFloat(els2.topQ.value || "0.2"),
+      bot_q: parseFloat(els2.botQ.value || "0.2"),
+      cost_bps: parseFloat(els2.costBps.value || "0"),
+      neutralize: true
+    };
+    const res = await api("/backtest", { method:"POST", body: JSON.stringify(payload) });
+  
+    // Equity curve
+    Plotly.newPlot(els2.equityChart, [{
+      x: res.dates, y: res.equity, mode: "lines", name: "Equity"
+    }], { margin:{t:20,r:10,b:40,l:45}, xaxis:{type:"date"}, yaxis:{zeroline:false} });
+  
+    // Heatmap (signals)
+    Plotly.newPlot(els2.heatmap, [{
+      z: res.signals,
+      x: res.columns,
+      y: res.dates,
+      type: "heatmap",
+      colorscale: "RdBu",
+      reversescale: true,
+      showscale: true
+    }], { margin:{t:20,r:10,b:40,l:60}, yaxis:{autorange:"reversed"} });
+  }
+  
+  document.getElementById("btnBacktest").addEventListener("click", runBacktest);
+
+  
+  async function showAST() {
+    const alpha = els.alpha.value.trim();
+    const res = await api("/ast", { method:"POST", body: JSON.stringify({ alpha }) });
+    els.astPretty.textContent = res.pretty || "";
+    els.astJson.textContent = JSON.stringify(res.tree || {}, null, 2);
+  }
+  
+  document.getElementById("btnAST").addEventListener("click", showAST);  
   
   async function loadFunctions() {
     const data = await api("/functions");
@@ -45,7 +95,7 @@ async function api(path, opts={}) {
     // you can adapt it to read last date from CSVs if date omitted, or keep a small helper endpoint).
     // For now, we’ll fetch series and take the last row (works fine).
     const alpha = els.alpha.value.trim();
-    const res = await api("/evaluate_series", { method:"POST", body: JSON.stringify({ alpha, fields: [] }) });
+    const res = await api("/evaluate_series_fast", { method:"POST", body: JSON.stringify({ alpha, fields: [] }) });
     const { dates, columns, values } = res;
   
     if (!dates || dates.length === 0) return;
@@ -62,7 +112,7 @@ async function api(path, opts={}) {
   
   async function evaluateSeries() {
     const alpha = els.alpha.value.trim();
-    const res = await api("/evaluate_series", { method:"POST", body: JSON.stringify({ alpha, fields: [] }) });
+    const res = await api("/evaluate_series_fast", { method:"POST", body: JSON.stringify({ alpha, fields: [] }) });
     const { dates, columns, values } = res;
     if (!dates || !columns) return;
   
