@@ -1,5 +1,5 @@
-
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 from functools import lru_cache
@@ -21,6 +21,18 @@ WEB_DIR = os.path.join(os.path.dirname(__file__), "..", "web")
 STATIC_DIR = os.path.join(WEB_DIR)  # we’ll mount the same dir for simplicity
 
 app = FastAPI(title="Desmos-for-Alphas DSL")
+
+origins = [
+    "https://desmos-for-alphas.onrender.com",  # replace with your actual frontend Render UR
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,          # or ["*"] if you're just testing
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # mount /static to /web for css/js
 app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
@@ -63,6 +75,12 @@ def load_fields():
         "close":   read("close"),
         "volume":  read("volume"),
     }
+
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+
 
 @app.get("/", response_class=HTMLResponse)
 def playground():
