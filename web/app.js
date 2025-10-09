@@ -1,5 +1,58 @@
 "use strict";
 
+// === Global loading overlay (ref-counted, no flicker) ===
+const Loading = (() => {
+  let el, styleEl, counter = 0, showTimer = null;
+
+  function ensureDom() {
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.textContent = `
+        #loading-overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.35);backdrop-filter:saturate(120%) blur(2px);z-index:9999}
+        #loading-overlay .spinner{width:56px;height:56px;border-radius:50%;border:6px solid rgba(255,255,255,.35);border-top-color:#fff;animation:spin 0.9s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .is-loading{opacity:.6;pointer-events:none}
+      `;
+      document.head.appendChild(styleEl);
+    }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "loading-overlay";
+      el.innerHTML = `<div class="spinner" aria-label="Loading"></div>`;
+      document.body.appendChild(el);
+    }
+  }
+
+  function reallyShow() {
+    ensureDom();
+    el.style.display = "flex";
+  }
+
+  return {
+    show() {
+      counter++;
+      // small delay to avoid flicker on super fast requests
+      if (!showTimer && counter === 1) {
+        showTimer = setTimeout(() => { showTimer = null; if (counter > 0) reallyShow(); }, 120);
+      }
+    },
+    hide() {
+      counter = Math.max(0, counter - 1);
+      if (counter === 0) {
+        if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+        if (el) el.style.display = "none";
+      }
+    },
+    // helper for per-button visual state
+    async wrapButton(btn, fn) {
+      if (btn) btn.classList.add("is-loading");
+      try { return await fn(); }
+      finally { if (btn) btn.classList.remove("is-loading"); }
+    }
+  };
+})();
+
+
 // --- Optional API base (safe default for relative paths) ---
 const API_BASE =
   (typeof window !== "undefined" && window.API_BASE) ||
@@ -7,13 +60,15 @@ const API_BASE =
 
 // Simple fetch helper
 async function api(path, opts = {}) {
-  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
-  const r = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...opts
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  const url = path.startsWith("http") ? path : `${(typeof window !== "undefined" && window.API_BASE) || ""}${path}`;
+  Loading.show();
+  try {
+    const r = await fetch(url, { headers: { "Content-Type": "application/json" }, ...opts });
+    if (!r.ok) throw new Error(await r.text());
+    return await r.json();
+  } finally {
+    Loading.hide();
+  }
 }
 
 // ----- App state (filled in init) -----
