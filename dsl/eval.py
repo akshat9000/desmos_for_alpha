@@ -50,13 +50,13 @@ class EvaluationContext:
 
 
 def _node_key(node):
-        from .parser import Number, Name, BinOp, UnaryOp, Call
-        if isinstance(node, Number): return ("num", node.value)
-        if isinstance(node, Name): return ("name", node.name)
-        if isinstance(node, UnaryOp): return ("un", node.op, _node_key(node.operand))
-        if isinstance(node, BinOp): return ("bin", node.op, _node_key(node.left), _node_key(node.right))
-        if isinstance(node, Call): return ("call", node.name, tuple(_node_key(a) for a in node.args))
-        raise TypeError
+    from .parser import Number, Name, BinOp, UnaryOp, Call
+    if isinstance(node, Number): return ("num", node.value)
+    if isinstance(node, Name): return ("name", node.name)
+    if isinstance(node, UnaryOp): return ("un", node.op, _node_key(node.operand))
+    if isinstance(node, BinOp): return ("bin", node.op, _node_key(node.left), _node_key(node.right))
+    if isinstance(node, Call): return ("call", node.name, tuple(_node_key(a) for a in node.args))
+    raise TypeError
 
 
 def eval_node(ctx: EvaluationContext, node):
